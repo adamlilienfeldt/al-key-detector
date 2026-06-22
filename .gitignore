@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.wav
+fase0_test.wav
+
+# tooling / agent artefakter
+.agents/
+.continue/
+.roo/
+skills-lock.json
+.DS_Store

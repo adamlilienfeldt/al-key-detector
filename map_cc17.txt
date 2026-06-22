@@ -1,0 +1,4 @@
+# Scale-mapping (major/minor) — CC#17, kanal 0
+value	uad_viser
+0	major
+1	major

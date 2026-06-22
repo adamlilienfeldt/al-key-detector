@@ -1,0 +1,55 @@
+{
+  "audio": {
+    "device_index": 4,
+    "device_name": "Pro Tools Audio Bridge 2-A",
+    "match_by_name": true,
+    "_comment": "device_index skifter naar lyd-enheder kobles til/fra (fx iPhone-mic). match_by_name=true resolver paa device_name i stedet, robust.",
+    "samplerate": 48000
+  },
+  "midi": {
+    "port_match": "IAC",
+    "channel": 0,
+    "cc_key": 16,
+    "cc_retune_speed": 18,
+    "retune_sure": 0,
+    "retune_unsure": 127,
+    "send_scale": false,
+    "_comment_scale": "CC#17 scale virker ikke i UAD - droppet. Minor -> relativ major.",
+    "_comment_retune": "CC#18 = Retune Speed. UAD-mapping omvendt: 0 = knap HELT OP (autotune paa, sikker), 127 = knap HELT NED (autotune fra, usikker). Binaer - aldrig mellemtrin. Hysterese: op ved conf>=0.60, ned foerst ved conf<0.50."
+  },
+  "detection": {
+    "analysis_samplerate": 22050,
+    "mode": "accumulate",
+    "max_buffer_seconds": 120,
+    "min_buffer_seconds": 6,
+    "analysis_interval_seconds": 1.5,
+    "confidence_threshold": 0.40,
+    "confidence_sure": 0.60,
+    "stable_windows_required": 2,
+    "min_level_dbfs": -45,
+    "silence_reset_windows": 3,
+    "_comment": "accumulate-fra-start. Hurtigere: interval 1.5s, 2 ens vinduer, min_buffer 6s -> key (CC#16) sendes tidligt. confidence_sure 0.60 -> retune speed (CC#18) op foerst naar sikker. Reset ved 3 stille vinduer."
+  },
+  "song_lookup": {
+    "enabled": true,
+    "contact_email": "lilienfeldt.adam@gmail.com",
+    "min_strength": 0.0,
+    "poll_seconds": 2.0,
+    "_comment": "Hybrid prior: Chrome-tab-titel -> MusicBrainz (titel->MBID) -> AcousticBrainz (MBID->toneart) -> laas CC#16 straks (provisorisk). GRATIS, ingen noegle. Lyd-detektion overruler (karaoke ofte transponeret). Retune (CC#18) forbliver NED til lyd bekraefter - prior styrer aldrig autotune-on alene. contact_email kraeves af MusicBrainz (User-Agent). min_strength: drop opslag under denne AcousticBrainz key_strength (0 = stol altid). GetSongBPM droppet (Cloudflare-blok)."
+  },
+  "cc_key_map": {
+    "_comment": "pitch-class (0=C..11=B) -> bekraeftet CC#16 vaerdi i UAD Console (ikke-lineaer, maalt 2026-06-21)",
+    "0": 0,
+    "1": 18,
+    "2": 24,
+    "3": 35,
+    "4": 48,
+    "5": 60,
+    "6": 72,
+    "7": 90,
+    "8": 95,
+    "9": 106,
+    "10": 116,
+    "11": 127
+  }
+}
