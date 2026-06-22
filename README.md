@@ -1,88 +1,91 @@
-# Karaoke Auto-Tune — automatisk toneart-styring
+# Karaoke Auto-Tune — automatic key control
 
-Lytter på Pro Tools-audio (karaoke-instrumental), detekterer toneart i realtid,
-og sender MIDI CC#16 (Key) til UAD Auto-Tune via IAC Driver. Scale håndteres via
-relativ-major-trick (minor → relativ major), så kun CC#16 bruges.
+Listens to Pro Tools audio (karaoke instrumental), detects the musical key in real
+time, and sends MIDI CC#16 (Key) to UAD Auto-Tune via the IAC Driver. Scale is
+handled with a relative-major trick (minor → relative major), so only CC#16 is used.
 
-## Opsætning (engang)
+## Setup (once)
 
 1. **IAC Driver:** Audio MIDI Setup → MIDI Studio → IAC Driver → "Device is online".
-   Bekræft port hedder noget med "IAC".
-2. **UAD Console:** MIDI-learn CC#16 til Auto-Tune's Key-parameter, kanal 1.
-3. **Pro Tools:** rut karaoke-lyd til "Pro Tools Audio Bridge 2-A" (device index 3).
-4. Python-miljø:
+   Confirm the port name contains "IAC".
+2. **UAD Console:** MIDI-learn CC#16 to Auto-Tune's Key parameter, channel 1.
+3. **Pro Tools:** route the karaoke audio to "Pro Tools Audio Bridge 2-A".
+4. Python environment:
    ```
    python3.11 -m venv venv
    ./venv/bin/pip install -r requirements.txt
    ```
 
-Alle settings (device, port, CC, thresholds, key-mapping) ligger i `config.json`.
+All settings (device, port, CC, thresholds, key mapping) live in `config.json`.
 
-## Kør
+## Run
 
 ```bash
-# Fuld drift: lyt live + send MIDI
+# Full operation: listen live + send MIDI
 PYTHONPATH=src ./venv/bin/python src/main.py live
 
-# Tør-kør (detektér, INGEN MIDI)
+# Dry run (detect, NO MIDI)
 PYTHONPATH=src ./venv/bin/python src/main.py live --no-midi
 
-# Test mod en lydfil
-PYTHONPATH=src ./venv/bin/python src/main.py file '/sti/sang.mp4' --fast --midi
+# Test against an audio file
+PYTHONPATH=src ./venv/bin/python src/main.py file '/path/song.mp4' --fast --midi
 ```
 
-Programmet låser typisk korrekt toneart ~25-40 sek inde i en sang (akkumulerer
-fra sang-start). Stilhed mellem sange (≥~8s) nulstiller automatisk til ny sang.
+The program typically locks the correct key ~25-40 sec into a song (it accumulates
+from the start of the song). Silence between songs (≥~8s) automatically resets for
+a new song.
 
-## Værktøjer (Fase 0 / fejlfinding)
+## Tools (Phase 0 / troubleshooting)
 
 ```bash
-# Audio-devices + MIDI-porte
+# Audio devices + MIDI ports
 ./venv/bin/python src/list_devices.py
 
-# Find hvilket device har signal (afspil lyd imens)
+# Find which device has signal (play audio while running)
 ./venv/bin/python src/audio_capture.py probe
 
-# Send en enkelt tone manuelt til Auto-Tune
+# Send a single note manually to Auto-Tune
 ./venv/bin/python src/midi_output.py key A
 
-# Detektér toneart i en fil
-PYTHONPATH=src ./venv/bin/python src/key_detection.py sang.wav
+# Detect the key of a file
+PYTHONPATH=src ./venv/bin/python src/key_detection.py song.wav
 ```
 
-## Titel-prior (hybrid)
+## Title prior (hybrid)
 
-Henter aktiv YouTube-titel fra Chrome, slår toneart op via MusicBrainz +
-AcousticBrainz, og låser CC#16 **straks** (provisorisk) mens lyd-buffer fylder.
-Lyd-detektion er ground truth og overruler (karaoke ofte transponeret). Retune
-(CC#18) tændes ALDRIG af prior alene — kun når lyd bekræfter.
+Grabs the active YouTube tab title from Chrome, looks up the key via MusicBrainz +
+AcousticBrainz, and locks CC#16 **immediately** (provisionally) while the audio
+buffer fills. Audio detection is ground truth and overrides it (karaoke is often
+transposed). Retune (CC#18) is NEVER turned on by the prior alone — only when the
+audio confirms.
 
-Kilde: gratis, ingen API-nøgle. MusicBrainz kræver kun en kontakt-email i
-User-Agent (`config.json` → `song_lookup.contact_email`). AcousticBrainz har kun
-toneart for sange andre har analyseret — god dækning på hits, huller på nyt/obskurt.
-(GetSongBPM droppet: deres API ligger bag Cloudflare bot-challenge, ubrugelig fra
-script.) Test:
+Source: free, no API key. MusicBrainz only requires a contact email in the
+User-Agent (`config.json` → `song_lookup.contact_email`). AcousticBrainz only has
+keys for songs others have analyzed — good coverage on hits, gaps on new/obscure
+tracks. (GetSongBPM was dropped: their API sits behind a Cloudflare bot challenge,
+unusable from a script.) Test:
 ```bash
-./venv/bin/python src/song_lookup.py title     # vis renset Chrome-titel
-./venv/bin/python src/song_lookup.py lookup     # titel -> toneart
+./venv/bin/python src/song_lookup.py title     # show cleaned Chrome title
+./venv/bin/python src/song_lookup.py lookup     # title -> key
 ```
 
-## GUI (Fase 4)
+## GUI (Phase 4)
 
 ```bash
 PYTHONPATH=src ./venv/bin/python src/gui.py
 ```
-Viser YouTube-titel, aktuel send-tone, autotune-status, og en log der opdateres
-ved hvert nyt event. 12 knapper sætter toneart manuelt (låser auto til "Auto"
-trykkes). Knapper: Auto (slip manuel), Autotune PÅ/FRA (tving retune), Reset sang.
+Shows the YouTube title, the current send-key, autotune status, and a log that
+updates on every new event. 12 buttons set the key manually (locks auto until
+"Auto" is pressed); each button shows its relative minor below it. Buttons: Auto
+(release manual), Autotune ON/OFF (force retune), Reset song.
 
-Kræver Tk: `brew install python-tk@3.11` (engang). Kør GUI **eller** `main.py live`
-— ikke begge (deler audio-device).
+Requires Tk: `brew install python-tk@3.11` (once). Run the GUI **or** `main.py live`
+— not both (they share the audio device).
 
 ## Status
-- Fase 0 (audio+MIDI-rør) ✅
-- Fase 1 (key-detection, 4/4 på test) ✅
-- Fase 2 (realtids-pipeline + smoothing) ✅
-- Fase 3 (MIDI-output) ✅ kode — mangler live UAD-bekræftelse
-- Fase 4 (GUI status + log + manuel override) ✅
-- Fase 5 (robusthed, config) — delvist (config.json findes)
+- Phase 0 (audio + MIDI plumbing) ✅
+- Phase 1 (key detection, 4/4 on test) ✅
+- Phase 2 (realtime pipeline + smoothing) ✅
+- Phase 3 (MIDI output) ✅ code — pending live UAD confirmation
+- Phase 4 (GUI status + log + manual override) ✅
+- Phase 5 (robustness, config) — partial (config.json exists)
