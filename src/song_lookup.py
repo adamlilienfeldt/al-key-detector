@@ -46,6 +46,8 @@ _JUNK_WORDS = re.compile(
     re.I,
 )
 _PARENS = re.compile(r"[\(\[\{][^\)\]\}]*[\)\]\}]")  # (..) [..] {..}
+# "ft./feat./featuring/with X" til slut -> fjernes (bryder MusicBrainz-soegning).
+_FEAT = re.compile(r"\s*\b(ft\.?|feat\.?|featuring|w/|with)\b.*$", re.I)
 
 
 @dataclass
@@ -80,6 +82,7 @@ def clean_title(raw):
         return None, ""
     base = re.sub(r"\s*-\s*YouTube\s*$", "", raw, flags=re.I)  # strip suffix FOER split
     t = _PARENS.sub(" ", base)                             # fjern (...) [...]
+    t = _FEAT.sub("", t)                                   # drop "ft. X"
     t = _JUNK_WORDS.sub(" ", t)                            # fjern løse junk-ord
     t = re.sub(r"[|–—]+", " ", t)                          # pipes/dashes -> space
     t = re.sub(r"\s+", " ", t).strip(" -·")
@@ -97,6 +100,7 @@ def clean_title(raw):
 def _clean_part(s):
     s = re.sub(r"\s*-\s*YouTube\s*$", "", s, flags=re.I)
     s = _PARENS.sub(" ", s)
+    s = _FEAT.sub("", s)          # drop "ft. X" / "feat. X" / "with X"
     s = _JUNK_WORDS.sub(" ", s)
     s = re.sub(r"[|–—]+", " ", s)
     return re.sub(r"\s+", " ", s).strip(" -·")
@@ -106,7 +110,7 @@ def parse_key(key_str):
     """DB-key-streng (fx 'Am', 'F#', 'Db minor') -> (pitch_class, mode)."""
     if not key_str:
         return None
-    s = key_str.strip()
+    s = key_str.strip().replace("♯", "#").replace("♭", "b")  # unicode -> ascii
     m = re.match(r"^([A-Ga-g])([#b]?)", s)
     if not m:
         return None

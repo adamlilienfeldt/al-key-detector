@@ -57,6 +57,7 @@ class Pipeline:
         self.on_analysis = None  # callback(res, sure: bool, locked_pc) — hver analyse -> CC#18
         self.on_reset = None     # callback() — ny sang -> retune ned
         self.on_new_title = None # callback(raw_title) — ny YouTube-sang -> prior-opslag
+        self.on_level = None     # callback(is_sound: bool, dbfs: float) — lyd/stilhed-lampe
 
     def feed(self, mono_samples):
         self.buffer.extend(mono_samples)
@@ -72,14 +73,18 @@ class Pipeline:
         if now - self.last_analysis < self.interval:
             return
         self.last_analysis = now
+        ts = time.strftime("%H:%M:%S")
+        # niveau til lampe (selv foer min_len naas) — seneste ~3s.
+        seg = np.fromiter(self.buffer, dtype=np.float32) if self.buffer else np.zeros(1, np.float32)
+        peak = float(np.max(np.abs(seg[-self.sr * 3:]))) if seg.size else 0.0
+        dbfs = _dbfs(peak)
+        if self.on_level:
+            self.on_level(dbfs >= self.min_dbfs, dbfs)
         if len(self.buffer) < self.min_len:
             return
-        seg = np.fromiter(self.buffer, dtype=np.float32)
-        peak = float(np.max(np.abs(seg[-self.sr * 3:]))) if seg.size else 0.0  # niveau på seneste 3s
-        ts = time.strftime("%H:%M:%S")
-        if _dbfs(peak) < self.min_dbfs:
+        if dbfs < self.min_dbfs:
             self.silence_count += 1
-            print(f"[{ts}] stilhed ({_dbfs(peak):.0f} dBFS) [{self.silence_count}/{self.silence_reset}]")
+            print(f"[{ts}] stilhed ({dbfs:.0f} dBFS) [{self.silence_count}/{self.silence_reset}]")
             if self.silence_count >= self.silence_reset:
                 self.reset_song(ts)
             return
@@ -137,17 +142,34 @@ def run_live_loop(cfg, pipe, stop=None):
     if title_on:
         from song_lookup import chrome_title
 
+    # Callback skal vaere realtime-LET (ingen FFT/alloc), ellers underruns paa
+    # delt/multi-output device -> hak. Callback kopierer kun raa samples til en
+    # koe; resampling (FFT) sker i analyse-loopet, ikke i lyd-traaden.
+    import queue as _queue
+    raw_q = _queue.Queue()
+
     def cb(indata, frames, t, status):
-        mono = indata.mean(axis=1) if indata.ndim > 1 else indata
-        n = max(1, int(len(mono) * ratio))
-        pipe.feed(sps.resample(mono, n).astype(np.float32))
+        raw_q.put(indata.copy())  # let: kun kopi + enqueue
+
+    def _ingest():
+        while True:
+            try:
+                block = raw_q.get_nowait()
+            except _queue.Empty:
+                break
+            mono = block.mean(axis=1) if block.ndim > 1 else block.ravel()
+            n = max(1, int(len(mono) * ratio))
+            pipe.feed(sps.resample(mono, n).astype(np.float32))
 
     start = time.time()
-    with sd.InputStream(device=dev, samplerate=in_sr, channels=min(2, sd.query_devices(dev)["max_input_channels"]),
-                        dtype="float32", callback=cb, blocksize=int(in_sr * 0.5)):
+    # blocksize=0 = PortAudio vaelger optimal (lille); latency high = scheduler-slack.
+    with sd.InputStream(device=dev, samplerate=in_sr,
+                        channels=min(2, sd.query_devices(dev)["max_input_channels"]),
+                        dtype="float32", callback=cb, blocksize=0, latency="high"):
         try:
             while stop is None or not stop.is_set():
                 now = time.time() - start
+                _ingest()
                 pipe.maybe_analyze(now)
                 if title_on and now - last_title_check >= title_poll:
                     last_title_check = now

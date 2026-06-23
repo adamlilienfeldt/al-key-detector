@@ -29,6 +29,9 @@ class App:
         self.root = root
         self.q = queue.Queue()
         self.stop = threading.Event()
+        self.chosen_pc = None      # aktuelt valgt/sendt CC#16 pitch-class
+        self.chosen_src = ""       # lyd | prior | manuel
+        self.autotune_on = False   # om retune (CC#18) korrigerer nu
         root.title("AL_KEY DETECTOR")
         root.configure(bg=BG)
 
@@ -41,6 +44,7 @@ class App:
         self.pipe.on_analysis = self.ctrl.on_analysis
         self.pipe.on_reset = self.ctrl.on_reset
         self.pipe.on_new_title = self.ctrl.on_new_title
+        self.pipe.on_level = lambda snd, db: self.q.put(("level", {"sound": snd, "dbfs": db}))
 
         self._build()
         self.thread = threading.Thread(target=self._audio, args=(cfg,), daemon=True)
@@ -51,9 +55,21 @@ class App:
 
     # ---------- layout ----------
     def _build(self):
-        top = tk.Frame(self.root, bg=BG); top.pack(fill="x", padx=12, pady=(12, 4))
+        lamp_row = tk.Frame(self.root, bg=BG); lamp_row.pack(fill="x", padx=12, pady=(10, 0))
+        tk.Label(lamp_row, text="Signal:", width=16, anchor="w", bg=BG, fg="#9a9a9a",
+                 font=("Helvetica", 11)).pack(side="left")
+        self.lamp = tk.Canvas(lamp_row, width=16, height=16, bg=BG, highlightthickness=0)
+        self.lamp.pack(side="left")
+        self._lamp_dot = self.lamp.create_oval(2, 2, 14, 14, fill="#444", outline="#222")
+        self.lbl_lamp = tk.Label(lamp_row, text="stilhed", bg=BG, fg="#888",
+                                 font=("Helvetica", 11, "bold"))
+        self.lbl_lamp.pack(side="left", padx=8)
+
+        top = tk.Frame(self.root, bg=BG); top.pack(fill="x", padx=12, pady=(8, 4))
         self.lbl_title = self._stat(top, "Titel:", "—")
-        self.lbl_key = self._stat(top, "Toneart (send):", "—")
+        self.lbl_lib = self._stat(top, "Bibliotek:", "—")
+        self.lbl_audio = self._stat(top, "Fundet (lyt):", "—")
+        self.lbl_chosen = self._stat(top, "Valgt toneart:", "—")
         self.lbl_rt = self._stat(top, "Autotune:", "FRA")
         self.lbl_mode = self._stat(top, "Tilstand:", "auto")
 
@@ -117,7 +133,9 @@ class App:
 
     def _force_rt(self, on):
         self.ctrl.set_manual_retune(on)
+        self.autotune_on = on
         self._set_rt_label(on, manual=True)
+        self._refresh_chosen()
         self.log(f"→ Autotune tvunget {'PÅ' if on else 'FRA'} (manuel)")
 
     def _reset(self):
@@ -151,25 +169,50 @@ class App:
         elif kind == "lookup":
             if p.get("found"):
                 pc = p["pc"]
+                self.lbl_lib.config(text=f"{NOTE_NAMES[pc]}  ({p['key_str']})")
                 self.log(f"  bibliotek: {p['key_str']} (str {p['strength']:.2f}) "
                          f"→ send-tone {NOTE_NAMES[pc]}")
             else:
+                self.lbl_lib.config(text="intet fund")
                 self.log("  bibliotek: intet fund — venter på lyd")
         elif kind == "key":
-            pc = p["pc"]
-            self.lbl_key.config(text=f"{NOTE_NAMES[pc]}  ({p['src']})")
-            self._mark_key(pc if p["src"] == "manuel" else None)
-            self.log(f"KEY → {NOTE_NAMES[pc]}  [{p['src']}: {p.get('detail','')}]")
+            pc = p["pc"]; src = p["src"]
+            self.chosen_pc = pc; self.chosen_src = src
+            if src == "lyd":
+                self.lbl_audio.config(text=NOTE_NAMES[pc])  # toneart fundet ved lytning
+            self._mark_key(pc if src == "manuel" else None)
+            self._refresh_chosen()
+            self.log(f"KEY → {NOTE_NAMES[pc]}  [{src}: {p.get('detail','')}]")
         elif kind == "retune":
+            self.autotune_on = p["on"]
             self._set_rt_label(p["on"], manual=False)
+            self._refresh_chosen()  # Valgt-linje afspejler om korrektion er aktiv
             self.log(f"RETUNE → autotune {'PÅ' if p['on'] else 'FRA'}  [{p['src']}]")
         elif kind == "auto":
             self._mark_key(None)
         elif kind == "reset":
-            self.lbl_title.config(text="—")
+            self.chosen_pc = None
+            for lbl in (self.lbl_title, self.lbl_lib, self.lbl_audio, self.lbl_chosen):
+                lbl.config(text="—")
+            self.lbl_chosen.config(fg=FG)
             self.log("RESET (ny sang / stilhed)")
+        elif kind == "level":
+            snd = p["sound"]
+            self.lamp.itemconfig(self._lamp_dot, fill=OK if snd else "#444")
+            self.lbl_lamp.config(text=f"lyd ({p['dbfs']:.0f} dBFS)" if snd else "stilhed",
+                                 fg=OK if snd else "#888")
         elif kind == "error":
             self.log(f"FEJL: {p['msg']}")
+
+    def _refresh_chosen(self):
+        """Valgt-toneart-linje: vis tone + om autotune faktisk korrigerer nu."""
+        if self.chosen_pc is None:
+            self.lbl_chosen.config(text="—", fg=FG)
+            return
+        active = self.autotune_on
+        state = "aktiv" if active else "autotune fra"
+        self.lbl_chosen.config(text=f"{NOTE_NAMES[self.chosen_pc]}  ({self.chosen_src}, {state})",
+                               fg=OK if active else "#888")
 
     def _set_rt_label(self, on, manual):
         txt = ("PÅ" if on else "FRA") + (" (manuel)" if manual else "")

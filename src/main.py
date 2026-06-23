@@ -127,6 +127,7 @@ class MidiController:
             self.last_pc = pc
             send_key(self.out, self.ch, self.cc, self.cc_map, pc)
             print(f"         >>> MIDI key (prior): {NOTE_NAMES[pc]} (CC#{self.cc}={self.cc_map[pc]})")
+            self._emit("key", pc=pc, src="prior", detail="bibliotek")
         # Retune forbliver NED — autotune taendes foerst naar LYD bekraefter (transpon.-sikkert).
 
     def on_reset(self):
