@@ -38,7 +38,8 @@ def build_timeline(video_id):
     y, sr = fetch_audio(video_id, cache, sr=int(CFG["detection"]["analysis_samplerate"]))
     t = CFG["timeline"]
     segs = analyze_timeline(y, sr, window_seconds=t["window_seconds"], hop_seconds=t["hop_seconds"],
-                            min_segment_seconds=t["min_segment_seconds"], conf_threshold=t["conf_threshold"])
+                            min_segment_seconds=t["min_segment_seconds"], conf_threshold=t["conf_threshold"],
+                            consolidate=t.get("consolidate_related", True))
     return Timeline(segs)
 
 

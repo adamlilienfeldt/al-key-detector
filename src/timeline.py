@@ -2,7 +2,8 @@
 
 segment_windows er REN (ingen DSP) og fuldt testbar. analyze_timeline kobler
 detektion (key_detection.detect_key) paa toppen via dependency-injection."""
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, replace
 
 from key_detection import detect_key
 
@@ -75,8 +76,36 @@ def segment_windows(windows, hop, min_segment_seconds):
     return segs
 
 
+def global_pc(windows):
+    """Sangens dominerende toneart: pc med mest confident varighed."""
+    score = defaultdict(float)
+    for w in windows:
+        if w.relative_major_pc is not None:
+            score[w.relative_major_pc] += w.confidence
+    return max(score, key=score.get) if score else None
+
+
+def consolidate_related(windows):
+    """Kollaps I/IV/V-forvekslinger til sangens globale toneart. Korte vinduer fanger
+    den aktuelle akkord (tonika/subdominant/dominant), ikke sangens toneart -> de
+    laeses som beslægtede men forskellige keys. {global, global+5, global+7} (mod 12)
+    er netop I/IV/V relmaj -> saet dem alle = global. Ægte modulation (fx +1 halvtone)
+    ligger udenfor og bevares."""
+    g = global_pc(windows)
+    if g is None:
+        return windows
+    close = {g, (g + 5) % 12, (g + 7) % 12}
+    out = []
+    for w in windows:
+        if w.relative_major_pc in close and w.relative_major_pc != g:
+            w = replace(w, relative_major_pc=g)
+        out.append(w)
+    return out
+
+
 def analyze_timeline(samples, sr, *, window_seconds, hop_seconds,
-                     min_segment_seconds, conf_threshold, detect=detect_key):
+                     min_segment_seconds, conf_threshold, detect=detect_key,
+                     consolidate=True):
     win = int(window_seconds * sr)
     hop = int(hop_seconds * sr)
     windows = []
@@ -90,6 +119,8 @@ def analyze_timeline(samples, sr, *, window_seconds, hop_seconds,
         windows.append(WindowKey(t=pos / sr, relative_major_pc=pc,
                                  key=res.key, mode=res.mode, confidence=res.confidence))
         pos += hop
+    if consolidate:
+        windows = consolidate_related(windows)
     return segment_windows(windows, hop_seconds, min_segment_seconds)
 
 
