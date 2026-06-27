@@ -9,12 +9,24 @@ from appconfig import load_merged_config, get_cache_dir
 from audio_fetch import fetch_audio, media_glob
 from timeline import analyze_timeline, Timeline
 from timeline_driver import TimelineDriver, MidiSink
+from key_detection import NOTE_NAMES
+import applog
 import youtube_search
 
 CFG = load_merged_config()
 WEB = os.path.join(os.path.dirname(__file__), "web")
+_logp = CFG.get("player", {}).get("log_path")
+LOGP = os.path.expanduser(_logp) if _logp else None  # None -> applog default
 app = FastAPI()
 STATE = {"timeline": None, "driver": None, "video_id": None}
+
+
+def _log(event_type, **fields):
+    applog.log_event(event_type, path=LOGP, **fields)
+
+
+def _note(pc):
+    return None if pc is None else NOTE_NAMES[pc]
 
 
 def make_sink():
@@ -60,6 +72,10 @@ async def api_load(body: dict):
         STATE["driver"].last_pc = None
     STATE["timeline"] = tl
     STATE["video_id"] = vid
+    _log("load", video_id=vid,
+         segments=[{"start": round(s.start, 2), "pc": s.relative_major_pc,
+                    "note": _note(s.relative_major_pc), "key": s.key, "mode": s.mode}
+                   for s in tl.segments])
     return {"status": "ready", "segments": _segs_json(tl)}
 
 
@@ -91,13 +107,21 @@ async def ws(sock: WebSocket):
             msg = json.loads(await sock.receive_text())
             d = STATE["driver"]
             if msg.get("type") == "position" and d:
-                d.on_position(float(msg["t"]))
+                t = float(msg["t"])
+                before_pc, before_rt = d.last_pc, d.sink_retune()
+                d.on_position(t)
+                if d.last_pc != before_pc:
+                    _log("key", t=round(t, 2), pc=d.last_pc, note=_note(d.last_pc))
+                if d.sink_retune() != before_rt:
+                    _log("retune", t=round(t, 2), on=d.sink_retune())
                 await sock.send_text(json.dumps({
                     "type": "state", "pc": d.last_pc, "retune": d.sink_retune()}))
             elif msg.get("type") == "manual" and d:
                 d.set_manual_key(int(msg["pc"]))
+                _log("manual", pc=int(msg["pc"]), note=_note(int(msg["pc"])))
             elif msg.get("type") == "auto" and d:
                 d.clear_manual()
+                _log("auto")
     except WebSocketDisconnect:
         pass
 
