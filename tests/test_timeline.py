@@ -1,6 +1,7 @@
 import numpy as np
 from types import SimpleNamespace as NS
-from timeline import WindowKey, Segment, segment_windows, analyze_timeline, Timeline
+from timeline import (WindowKey, Segment, segment_windows, analyze_timeline, Timeline,
+                      consolidate_related)
 
 def W(t, pc, conf=0.7): return WindowKey(t=t, relative_major_pc=pc, key="X", mode="major", confidence=conf)
 
@@ -20,7 +21,7 @@ def test_analyze_builds_segments_with_injected_detect():
     plan = [(0, 0.7)] * 12 + [(7, 0.7)] * 11        # C-run + G-run, begge laenge nok
     segs = analyze_timeline(samples, sr, window_seconds=8, hop_seconds=1.0,
                             min_segment_seconds=4, conf_threshold=0.4,
-                            detect=_fake_detect_factory(plan))
+                            detect=_fake_detect_factory(plan), consolidate=False)
     assert [s.relative_major_pc for s in segs] == [0, 7]
 
 def test_low_conf_window_becomes_none_pc():
@@ -43,6 +44,30 @@ def test_timeline_lookup():
 
 def test_timeline_lookup_empty():
     assert Timeline([]).lookup(5) is None
+
+def test_consolidate_collapses_I_IV_V_to_global():
+    # Bb(10) sang som flapper til F(5, dominant) og D#(3, subdominant) -> alt = 10.
+    seq = [10, 5, 3, 10, 5, 10, 3, 10, 5, 3]
+    ws = [W(i, pc) for i, pc in enumerate(seq)]
+    out = consolidate_related(ws)
+    assert {w.relative_major_pc for w in out} == {10}
+
+def test_consolidate_preserves_real_modulation():
+    # Bb(10) -> B(11, +1 halvtone) er IKKE I/IV/V -> bevares.
+    seq = [10, 10, 10, 10, 10, 11, 11, 11, 11, 11]
+    ws = [W(i, pc) for i, pc in enumerate(seq)]
+    out = consolidate_related(ws)
+    pcs = {w.relative_major_pc for w in out}
+    assert 11 in pcs and 10 in pcs
+
+def test_analyze_consolidates_related_into_one_segment():
+    sr = 22050
+    samples = np.zeros(sr * 30, dtype=np.float32)
+    plan = [(10, 0.7), (5, 0.6), (3, 0.6)] * 8        # I-IV-V flap omkring Bb
+    segs = analyze_timeline(samples, sr, window_seconds=8, hop_seconds=1.0,
+                            min_segment_seconds=4, conf_threshold=0.4,
+                            detect=_fake_detect_factory(plan), consolidate=True)
+    assert [s.relative_major_pc for s in segs] == [10]
 
 def test_single_key_one_segment():
     ws = [W(i*1.0, 0) for i in range(10)]
