@@ -85,15 +85,27 @@ def global_pc(windows):
     return max(score, key=score.get) if score else None
 
 
-def consolidate_related(windows):
-    """Kollaps I/IV/V-forvekslinger til sangens globale toneart. Korte vinduer fanger
-    den aktuelle akkord (tonika/subdominant/dominant), ikke sangens toneart -> de
-    laeses som beslægtede men forskellige keys. {global, global+5, global+7} (mod 12)
-    er netop I/IV/V relmaj -> saet dem alle = global. Ægte modulation (fx +1 halvtone)
-    ligger udenfor og bevares."""
+def consolidate_related(windows, dominance_threshold=0.6):
+    """Kollaps I/IV/V-forvekslinger til sangens globale toneart — MEN kun naar én
+    toneart klart dominerer hele sporet.
+
+    Korte vinduer fanger den aktuelle akkord (tonika/subdominant/dominant), ikke
+    sangens toneart -> en ét-toneart-sang laeses som beslægtede keys {global,
+    global+5, global+7} (I/IV/V relmaj). Hvis global dominerer >= tærskel er de
+    øvrige misreads -> saet dem = global.
+
+    Hvis INGEN toneart dominerer (to ca. lige store centre, fx vers i D + omkvæd i
+    A) er det en ÆGTE modulation -> roer ikke vinduerne. Det forhindrer at en
+    D<->A-modulation (A = D+7) fejlagtigt kollapses."""
     g = global_pc(windows)
     if g is None:
         return windows
+    confident = [w.relative_major_pc for w in windows if w.relative_major_pc is not None]
+    if not confident:
+        return windows
+    ratio = sum(1 for pc in confident if pc == g) / len(confident)
+    if ratio < dominance_threshold:
+        return windows  # ingen klar global -> behandl som ægte fler-toneart
     close = {g, (g + 5) % 12, (g + 7) % 12}
     out = []
     for w in windows:
@@ -123,11 +135,11 @@ def detect_windows(samples, sr, *, window_seconds, hop_seconds, conf_threshold, 
 
 def analyze_timeline(samples, sr, *, window_seconds, hop_seconds,
                      min_segment_seconds, conf_threshold, detect=detect_key,
-                     consolidate=True):
+                     consolidate=True, dominance_threshold=0.6):
     windows = detect_windows(samples, sr, window_seconds=window_seconds,
                              hop_seconds=hop_seconds, conf_threshold=conf_threshold, detect=detect)
     if consolidate:
-        windows = consolidate_related(windows)
+        windows = consolidate_related(windows, dominance_threshold)
     return segment_windows(windows, hop_seconds, min_segment_seconds)
 
 

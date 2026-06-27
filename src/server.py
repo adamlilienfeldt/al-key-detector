@@ -43,7 +43,8 @@ def build_timeline(video_id):
     _log("windows", video_id=video_id, hop=t["hop_seconds"],
          w=[[round(w.t, 1), w.relative_major_pc, _note(w.relative_major_pc), round(w.confidence, 2)]
             for w in windows])
-    ws = consolidate_related(windows) if t.get("consolidate_related", False) else windows
+    ws = (consolidate_related(windows, t.get("consolidate_dominance", 0.6))
+          if t.get("consolidate_related", True) else windows)
     return Timeline(segment_windows(ws, t["hop_seconds"], t["min_segment_seconds"]))
 
 
