@@ -45,16 +45,23 @@ def test_timeline_lookup():
 def test_timeline_lookup_empty():
     assert Timeline([]).lookup(5) is None
 
-def test_consolidate_collapses_I_IV_V_to_global():
-    # Bb(10) sang som flapper til F(5, dominant) og D#(3, subdominant) -> alt = 10.
-    seq = [10, 5, 3, 10, 5, 10, 3, 10, 5, 3]
+def test_consolidate_collapses_when_global_dominates():
+    # Adele-tilfaeldet: Bb(10) dominerer; F(5)/D#(3) er minoritets-misreads -> alt = 10.
+    seq = [10] * 16 + [5, 3, 5, 3]      # global 16/20 = 0.8 >= 0.6
     ws = [W(i, pc) for i, pc in enumerate(seq)]
     out = consolidate_related(ws)
     assert {w.relative_major_pc for w in out} == {10}
 
-def test_consolidate_preserves_real_modulation():
-    # Bb(10) -> B(11, +1 halvtone) er IKKE I/IV/V -> bevares.
-    seq = [10, 10, 10, 10, 10, 11, 11, 11, 11, 11]
+def test_consolidate_keeps_balanced_two_centers():
+    # Euphoria-tilfaeldet: D(2) og A(9=D+7) ca. lige store -> ÆGTE modulation, behold.
+    seq = [2] * 10 + [9] * 10           # global 10/20 = 0.5 < 0.6
+    ws = [W(i, pc) for i, pc in enumerate(seq)]
+    out = consolidate_related(ws)
+    assert {w.relative_major_pc for w in out} == {2, 9}
+
+def test_consolidate_preserves_distant_modulation():
+    # Bb(10) -> B(11, +1 halvtone) er IKKE I/IV/V, og global dominerer -> 11 bevares.
+    seq = [10] * 16 + [11] * 4          # global 0.8; 11 ikke i {10,3,5}
     ws = [W(i, pc) for i, pc in enumerate(seq)]
     out = consolidate_related(ws)
     pcs = {w.relative_major_pc for w in out}
@@ -62,8 +69,8 @@ def test_consolidate_preserves_real_modulation():
 
 def test_analyze_consolidates_related_into_one_segment():
     sr = 22050
-    samples = np.zeros(sr * 30, dtype=np.float32)
-    plan = [(10, 0.7), (5, 0.6), (3, 0.6)] * 8        # I-IV-V flap omkring Bb
+    samples = np.zeros(sr * 40, dtype=np.float32)
+    plan = [(10, 0.7)] * 24 + [(5, 0.6), (3, 0.6)] * 4   # Bb dominerer; F/Eb minoritet
     segs = analyze_timeline(samples, sr, window_seconds=8, hop_seconds=1.0,
                             min_segment_seconds=4, conf_threshold=0.4,
                             detect=_fake_detect_factory(plan), consolidate=True)
