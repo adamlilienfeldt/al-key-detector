@@ -195,7 +195,7 @@ class App:
             for lbl in (self.lbl_title, self.lbl_lib, self.lbl_audio, self.lbl_chosen):
                 lbl.config(text="—")
             self.lbl_chosen.config(fg=FG)
-            self.log("RESET (ny sang / stilhed)")
+            self.log("RESET (ny sang)")
         elif kind == "level":
             snd = p["sound"]
             self.lamp.itemconfig(self._lamp_dot, fill=OK if snd else "#444")

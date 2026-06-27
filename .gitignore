@@ -3,6 +3,10 @@ __pycache__/
 *.wav
 fase0_test.wav
 
+# lokale secrets (API-noegler) — ALDRIG committet
+config.local.json
+app_gui.log
+
 # tooling / agent artefakter
 .agents/
 .continue/

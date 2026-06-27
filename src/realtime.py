@@ -50,22 +50,26 @@ class Pipeline:
         self.confidence_sure = float(d["confidence_sure"])
         self.silence_reset = int(d["silence_reset_windows"])
         self.buffer = deque(maxlen=self.max_len)
-        self.smoother = Smoother(d["stable_windows_required"], d["confidence_threshold"])
+        self.smoother = Smoother(d["stable_windows_required"], d["confidence_threshold"],
+                                 d.get("change_windows_required"))
         self.last_analysis = 0.0
         self.silence_count = 0
         self.on_stable = None    # callback(StableKey) — nyt stabilt key-skifte -> CC#16
         self.on_analysis = None  # callback(res, sure: bool, locked_pc) — hver analyse -> CC#18
-        self.on_reset = None     # callback() — ny sang -> retune ned
+        self.on_reset = None     # callback() — ny sang (titel-skift / fallback) -> ryd key+buffer
         self.on_new_title = None # callback(raw_title) — ny YouTube-sang -> prior-opslag
         self.on_level = None     # callback(is_sound: bool, dbfs: float) — lyd/stilhed-lampe
 
     def feed(self, mono_samples):
         self.buffer.extend(mono_samples)
 
-    def reset_song(self, ts):
+    def reset_song(self, ts, reason="ny sang"):
+        """Fuld reset: ryd buffer + smoother + key. Kaldes ved titel-skift (ny sang)
+        eller lang-stilheds-fallback. IKKE ved almindelig stilhed/break/pause."""
         self.buffer.clear()
         self.smoother.reset()
-        print(f"[{ts}] --- stilhed: nulstiller (ny sang), retune NED ---")
+        self.silence_count = 0
+        print(f"[{ts}] --- {reason}: nulstiller (buffer+key), retune NED ---")
         if self.on_reset:
             self.on_reset()
 
@@ -83,10 +87,13 @@ class Pipeline:
         if len(self.buffer) < self.min_len:
             return
         if dbfs < self.min_dbfs:
+            # Break/stilhed midt i sang: roer IKKE autotune eller key. Autotune
+            # forbliver paa; key holdes. Kun lang stilhed (sang slut, ingen titel)
+            # trigger fuld reset som ren sikkerheds-fallback.
             self.silence_count += 1
-            print(f"[{ts}] stilhed ({dbfs:.0f} dBFS) [{self.silence_count}/{self.silence_reset}]")
+            print(f"[{ts}] stilhed ({dbfs:.0f} dBFS) [reset {self.silence_count}/{self.silence_reset}]")
             if self.silence_count >= self.silence_reset:
-                self.reset_song(ts)
+                self.reset_song(ts, "lang stilhed (sikkerheds-fallback)")
             return
         self.silence_count = 0
         res = detect_key(seg, self.sr)
@@ -175,6 +182,10 @@ def run_live_loop(cfg, pipe, stop=None):
                     last_title_check = now
                     cur = chrome_title()
                     if cur and cur != last_title:
+                        # Titel-skift = ny sang -> fuld reset FOER prior-opslag.
+                        # (Pause/genstart skifter ikke titlen, saa ingen reset der.)
+                        if last_title is not None:
+                            pipe.reset_song(time.strftime("%H:%M:%S"), "ny titel")
                         last_title = cur
                         pipe.on_new_title(cur)
                 time.sleep(0.2)

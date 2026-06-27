@@ -63,15 +63,25 @@ class KeyHint:
 
 
 def chrome_title():
-    """Aktiv Chrome-tab-titel. None hvis Chrome lukket / fejl."""
+    """Aktiv Chrome-tab-titel — KUN hvis tabben er en tilladt musik-side (default:
+    YouTube-video /watch). None hvis Chrome lukket, fejl, eller tab ikke matcher
+    filteret (Gmail, Facebook, soegesider osv. ignoreres -> ingen reset)."""
     try:
         out = subprocess.run(
             ["osascript", "-e",
-             'tell application "Google Chrome" to return title of active tab of front window'],
+             'tell application "Google Chrome" to return (URL of active tab of front window) '
+             '& linefeed & (title of active tab of front window)'],
             capture_output=True, text=True, timeout=4,
         )
-        t = out.stdout.strip()
-        return t or None
+        parts = out.stdout.strip().split("\n", 1)
+        if len(parts) < 2:
+            return None
+        url, title = parts[0].strip().lower(), parts[1].strip()
+        allow = _config().get("song_lookup", {}).get(
+            "tab_url_allow", ["youtube.com/watch", "youtu.be/"])
+        if not any(s in url for s in allow):
+            return None  # ikke en sang-tab -> behold nuvaerende sang
+        return title or None
     except Exception:
         return None
 
