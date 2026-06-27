@@ -3,11 +3,14 @@ afspilning (serveres af backend) OG tidslinje-analyse. Loader/runner injicerbar 
 import glob
 import os
 import subprocess
+import sys
 
 import librosa
 
-# Progressiv mp4 (video+lyd i én fil) hvis muligt, ellers bedste samlede.
-_FORMAT = "best[ext=mp4]/best"
+# Tving H.264 (avc1) video + AAC lyd, merget til mp4 -> universelt afspilleligt i
+# browserens <video> (VP9/AV1 vises ikke i Safari). Fallback: progressiv itag 18.
+_FORMAT = "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/b[ext=mp4][vcodec^=avc1]/18/b"
+_MERGE_FORMAT = "mp4"
 
 
 def media_glob(video_id, cache_dir):
@@ -21,7 +24,9 @@ def fetch_media_file(video_id, cache_dir, *, runner=subprocess.run):
     if existing:
         return existing[0]
     target = os.path.join(cache_dir, f"{video_id}.%(ext)s")
-    cmd = ["yt-dlp", "-f", _FORMAT, "--no-playlist",
+    # Kald yt-dlp som modul med samme interpreter -> uafhaengig af PATH.
+    cmd = [sys.executable, "-m", "yt_dlp", "-f", _FORMAT,
+           "--merge-output-format", _MERGE_FORMAT, "--no-playlist",
            "-o", target, f"https://www.youtube.com/watch?v={video_id}"]
     r = runner(cmd, capture_output=True, text=True)
     if getattr(r, "returncode", 1) != 0:
