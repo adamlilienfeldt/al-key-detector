@@ -45,6 +45,7 @@ class MidiController:
         self.last_pc = None
         self.is_full = False
         self.retune = self.rt_unsure
+        self.prior_on = False  # autotune taendt af prior, afventer lyd-bekraeftelse
         # Manuel override (GUI): naar sat, ignorerer auto-detektion.
         self.manual_lock = False        # True -> auto on_stable rører ikke key
         self.manual_retune = None       # None=auto, True=tving op, False=tving ned
@@ -94,7 +95,9 @@ class MidiController:
         if self.manual_retune is not None:
             return  # bruger tvinger retune
         if locked_pc is None:
-            want_full = False
+            # Lyd har endnu ikke laast. Hold autotune oppe hvis prior taendte den
+            # (prior-key gaelder til lyd bekraefter/korrigerer); ellers nede.
+            want_full = self.prior_on
         elif self.is_full:
             want_full = res.confidence >= self.sure_hyst  # bliv oppe til conf falder under hysterese
         else:
@@ -128,11 +131,19 @@ class MidiController:
             send_key(self.out, self.ch, self.cc, self.cc_map, pc)
             print(f"         >>> MIDI key (prior): {NOTE_NAMES[pc]} (CC#{self.cc}={self.cc_map[pc]})")
             self._emit("key", pc=pc, src="prior", detail="bibliotek")
-        # Retune forbliver NED — autotune taendes foerst naar LYD bekraefter (transpon.-sikkert).
+        # Taend autotune STRAKS paa prior-key. Lyd bekraefter eller korrigerer
+        # bagefter (on_stable skifter key, on_analysis styrer videre via conf).
+        if self.manual_retune is None:
+            self.prior_on = True
+            self.is_full = True
+            if self.retune != self.rt_sure:
+                self._set_retune(self.rt_sure)
+            self._emit("retune", on=True, src="prior")
 
     def on_reset(self):
         self.last_pc = None
         self.is_full = False
+        self.prior_on = False
         if self.manual_retune is None:
             self._set_retune(self.rt_unsure)
         self._emit("reset")

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>AL_KEY DETECTOR</string>
+    <key>CFBundleDisplayName</key>
+    <string>AL_KEY DETECTOR</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.lilienfeldt.alkeydetector</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleExecutable</key>
+    <string>launcher</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.15</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>AL_KEY DETECTOR lytter til karaoke-lyd for at detektere toneart.</string>
+</dict>
+</plist>

@@ -1,4 +1,9 @@
 audioread==3.1.0
+fastapi
+uvicorn[standard]
+yt-dlp
+pytest
+httpx
 certifi==2026.6.17
 cffi==2.0.0
 charset-normalizer==3.4.7

@@ -1,0 +1,16 @@
+#!/bin/bash
+# Launcher for AL_KEY DETECTOR GUI. Kører projektets venv-python på src/gui.py.
+# Output (incl. fejl) logges til ~/Library/Logs (Dropbox-mappen er TCC-beskyttet
+# og ikke skrivbar for en Finder-startet app).
+PROJ="/Users/adamlilienfeldt/Library/CloudStorage/Dropbox/AL_KEY DETECTOR"
+LOG="$HOME/Library/Logs/AL_KEY_DETECTOR.log"
+cd "$PROJ" || exit 1
+
+PY="$PROJ/venv/bin/python"
+if [ ! -x "$PY" ]; then
+    /usr/bin/osascript -e 'display alert "AL_KEY DETECTOR" message "venv ikke fundet. Kør:\n\npython3.11 -m venv venv\n./venv/bin/pip install -r requirements.txt"'
+    exit 1
+fi
+
+export PYTHONPATH=src
+exec "$PY" -u src/gui.py >> "$LOG" 2>&1
