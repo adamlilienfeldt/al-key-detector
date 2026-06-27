@@ -1,1 +1,16 @@
-/* style */
+body { background:#1e1e1e; color:#e0e0e0; font-family:Helvetica,Arial,sans-serif; margin:0; }
+header { display:flex; gap:8px; padding:12px; }
+#q { flex:1; padding:8px; background:#141414; color:#e0e0e0; border:1px solid #333; }
+button { background:#2d2d2d; color:#e0e0e0; border:1px solid #444; padding:8px 12px; cursor:pointer; }
+button:hover { background:#3a7afe; }
+main { display:flex; gap:12px; padding:12px; }
+#results { width:320px; max-height:80vh; overflow:auto; }
+.result { display:grid; grid-template-columns:120px 1fr; gap:6px; padding:6px; cursor:pointer; align-items:center; }
+.result:hover { background:#2a2a2a; }
+.result img { width:120px; border-radius:4px; }
+.result small { grid-column:2; color:#888; }
+#stage { flex:1; }
+#status { margin-top:10px; font-size:15px; line-height:1.8; }
+#status b { color:#3ad07a; }
+#manual { display:flex; flex-wrap:wrap; gap:4px; margin:8px 0; }
+#manual button { width:44px; }

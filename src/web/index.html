@@ -1,1 +1,30 @@
-<!doctype html><title>AL_KEY</title>
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AL_KEY DETECTOR — YouTube</title>
+  <link rel="stylesheet" href="/style.css"/>
+</head>
+<body>
+  <header>
+    <input id="q" placeholder="Søg YouTube eller indsæt URL…" autocomplete="off"/>
+    <button id="go">Søg</button>
+  </header>
+  <main>
+    <section id="results"></section>
+    <section id="stage">
+      <div id="player"></div>
+      <div id="status">
+        <div>Toneart: <b id="key">—</b></div>
+        <div>Autotune: <b id="rt">FRA</b></div>
+        <div>Tidslinje: <b id="tl">—</b></div>
+        <div id="manual"></div>
+        <button id="auto">Auto</button>
+      </div>
+    </section>
+  </main>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
