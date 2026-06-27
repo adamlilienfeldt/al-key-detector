@@ -41,7 +41,7 @@
   },
   "youtube": { "search_max_results": 12 },
   "player": { "lookahead_seconds": 0.7, "cache_dir": "~/Library/Caches/AL_KEY_DETECTOR", "log_path": "~/Library/Logs/AL_KEY_DETECTOR_web.jsonl" },
-  "timeline": { "window_seconds": 12, "hop_seconds": 1.0, "min_segment_seconds": 10, "conf_threshold": 0.40, "consolidate_related": true },
+  "timeline": { "window_seconds": 20, "hop_seconds": 1.0, "min_segment_seconds": 12, "conf_threshold": 0.40, "consolidate_related": false },
   "cc_key_map": {
     "_comment": "pitch-class (0=C..11=B) -> bekraeftet CC#16 vaerdi i UAD Console (ikke-lineaer, maalt 2026-06-21)",
     "0": 0,

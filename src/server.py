@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from appconfig import load_merged_config, get_cache_dir
 from audio_fetch import fetch_audio, media_glob
-from timeline import analyze_timeline, Timeline
+from timeline import detect_windows, consolidate_related, segment_windows, Timeline
 from timeline_driver import TimelineDriver, MidiSink
 from key_detection import NOTE_NAMES
 import applog
@@ -37,10 +37,14 @@ def build_timeline(video_id):
     cache = get_cache_dir(CFG)
     y, sr = fetch_audio(video_id, cache, sr=int(CFG["detection"]["analysis_samplerate"]))
     t = CFG["timeline"]
-    segs = analyze_timeline(y, sr, window_seconds=t["window_seconds"], hop_seconds=t["hop_seconds"],
-                            min_segment_seconds=t["min_segment_seconds"], conf_threshold=t["conf_threshold"],
-                            consolidate=t.get("consolidate_related", True))
-    return Timeline(segs)
+    windows = detect_windows(y, sr, window_seconds=t["window_seconds"],
+                             hop_seconds=t["hop_seconds"], conf_threshold=t["conf_threshold"])
+    # Instrumentering: log RÅ per-vindue-detektioner til at designe udglatning.
+    _log("windows", video_id=video_id, hop=t["hop_seconds"],
+         w=[[round(w.t, 1), w.relative_major_pc, _note(w.relative_major_pc), round(w.confidence, 2)]
+            for w in windows])
+    ws = consolidate_related(windows) if t.get("consolidate_related", False) else windows
+    return Timeline(segment_windows(ws, t["hop_seconds"], t["min_segment_seconds"]))
 
 
 def _segs_json(tl):

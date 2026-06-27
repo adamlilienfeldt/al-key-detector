@@ -103,9 +103,8 @@ def consolidate_related(windows):
     return out
 
 
-def analyze_timeline(samples, sr, *, window_seconds, hop_seconds,
-                     min_segment_seconds, conf_threshold, detect=detect_key,
-                     consolidate=True):
+def detect_windows(samples, sr, *, window_seconds, hop_seconds, conf_threshold, detect=detect_key):
+    """Glidende key-detektion -> liste af WindowKey (rå, ingen udglatning)."""
     win = int(window_seconds * sr)
     hop = int(hop_seconds * sr)
     windows = []
@@ -119,6 +118,14 @@ def analyze_timeline(samples, sr, *, window_seconds, hop_seconds,
         windows.append(WindowKey(t=pos / sr, relative_major_pc=pc,
                                  key=res.key, mode=res.mode, confidence=res.confidence))
         pos += hop
+    return windows
+
+
+def analyze_timeline(samples, sr, *, window_seconds, hop_seconds,
+                     min_segment_seconds, conf_threshold, detect=detect_key,
+                     consolidate=True):
+    windows = detect_windows(samples, sr, window_seconds=window_seconds,
+                             hop_seconds=hop_seconds, conf_threshold=conf_threshold, detect=detect)
     if consolidate:
         windows = consolidate_related(windows)
     return segment_windows(windows, hop_seconds, min_segment_seconds)
