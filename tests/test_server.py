@@ -21,6 +21,7 @@ def test_load_builds_and_stores_timeline(monkeypatch):
     segs = [Segment(0, 10, 0, "C", "major", 0.7), Segment(10, 20, 7, "G", "major", 0.7)]
     monkeypatch.setattr(server, "build_timeline", lambda vid: Timeline(segs))
     monkeypatch.setattr(server, "make_sink", lambda: _FakeSink())
+    monkeypatch.setattr(server, "_log", lambda *a, **k: None)
     c = TestClient(server.app)
     r = c.post("/api/load", json={"videoId": "abc"})
     assert r.status_code == 200

@@ -40,7 +40,7 @@
     "_comment": "Hybrid prior: Chrome-tab-URL+titel -> MusicBrainz (titel->MBID) -> AcousticBrainz (MBID->toneart) -> laas CC#16 + taend autotune straks paa bibliotek-key (lyd bekraefter/korrigerer bagefter). GRATIS, ingen noegle. Lyd-detektion overruler (karaoke ofte transponeret). contact_email kraeves af MusicBrainz (User-Agent). min_strength: drop opslag under denne AcousticBrainz key_strength (0 = stol altid). tab_url_allow: tab tael KUN som sang hvis URL indeholder en af disse strenge (default rigtige YouTube-videoer) - Gmail/Facebook/soegesider ignoreres saa de ikke nulstiller. GetSongBPM droppet (Cloudflare-blok)."
   },
   "youtube": { "search_max_results": 12 },
-  "player": { "lookahead_seconds": 0.7, "cache_dir": "~/Library/Caches/AL_KEY_DETECTOR" },
+  "player": { "lookahead_seconds": 0.7, "cache_dir": "~/Library/Caches/AL_KEY_DETECTOR", "log_path": "~/Library/Logs/AL_KEY_DETECTOR_web.jsonl" },
   "timeline": { "window_seconds": 8, "hop_seconds": 1.0, "min_segment_seconds": 6, "conf_threshold": 0.40 },
   "cc_key_map": {
     "_comment": "pitch-class (0=C..11=B) -> bekraeftet CC#16 vaerdi i UAD Console (ikke-lineaer, maalt 2026-06-21)",
