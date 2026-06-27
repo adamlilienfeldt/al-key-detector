@@ -95,9 +95,10 @@ Requires Tk: `brew install python-tk@3.11` (once). Run the GUI **or** `main.py l
 
 ## YouTube karaoke-mode (tidslinje + look-ahead)
 
-Søg/indsæt en YouTube-video. App'en henter lyden, analyserer HELE sporet til en
-toneart-tidslinje, afspiller videoen, og sender CC#16 med look-ahead — så
-modulationer midt i sang følges uden lag.
+Søg/indsæt en YouTube-video. App'en **henter video+lyd** (yt-dlp), analyserer HELE
+sporet til en toneart-tidslinje, og afspiller videoen **lokalt** i et `<video>`-element
+(ikke YouTube-IFrame — så ejerens "ingen visning på andre sider" rammer os ikke).
+Position fra `<video>` driver CC#16 med look-ahead — modulationer følges uden lag.
 
 ```bash
 PYTHONPATH=src ./venv/bin/python src/run_web.py

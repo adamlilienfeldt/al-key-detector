@@ -32,3 +32,16 @@ def test_load_builds_and_stores_timeline(monkeypatch):
 def test_timeline_404_when_absent():
     c = TestClient(server.app)
     assert c.get("/api/timeline/nope").status_code == 404
+
+def test_media_404_when_absent(monkeypatch):
+    monkeypatch.setattr(server, "media_path", lambda vid: None)
+    c = TestClient(server.app)
+    assert c.get("/media/nope").status_code == 404
+
+def test_media_serves_file(tmp_path, monkeypatch):
+    f = tmp_path / "vid.mp4"; f.write_bytes(b"\x00\x01\x02data")
+    monkeypatch.setattr(server, "media_path", lambda vid: str(f))
+    c = TestClient(server.app)
+    r = c.get("/media/vid")
+    assert r.status_code == 200
+    assert r.content == b"\x00\x01\x02data"
