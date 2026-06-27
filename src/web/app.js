@@ -1,5 +1,6 @@
 const NOTES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-let player, ws, lastVid = null;
+const player = document.getElementById("player");
+let ws;
 
 function connectWS() {
   ws = new WebSocket(`ws://${location.host}/ws`);
@@ -38,30 +39,24 @@ async function search() {
 }
 
 async function load(vid) {
-  document.getElementById("tl").textContent = "analyserer…";
+  document.getElementById("tl").textContent = "henter + analyserer…";
   document.getElementById("results").innerHTML = "";
-  if (player) player.loadVideoById(vid); else createPlayer(vid);
-  lastVid = vid;
   const r = await fetch("/api/load", {method:"POST", headers:{"Content-Type":"application/json"},
                                        body: JSON.stringify({videoId: vid})});
   const d = await r.json();
-  document.getElementById("tl").textContent = d.status === "ready"
-    ? `${d.segments.length} segment(er)` : (d.error || "fejl");
+  if (d.status !== "ready") {
+    document.getElementById("tl").textContent = d.error || "fejl";
+    return;
+  }
+  document.getElementById("tl").textContent = `${d.segments.length} segment(er)`;
+  player.src = `/media/${vid}`;   // server vores lokale fil — ingen embed-spaerre
+  player.play().catch(() => {});  // autoplay kan kraeve klik; controls er der
 }
-
-function createPlayer(vid) {
-  player = new YT.Player("player", {
-    height: "390", width: "640", videoId: vid,
-    events: { onReady: e => e.target.playVideo() }
-  });
-}
-window.onYouTubeIframeAPIReady = () => {};
 
 // position-stream 4x/sek
 setInterval(() => {
-  if (player && player.getCurrentTime && ws && ws.readyState === 1) {
-    const t = player.getCurrentTime();
-    ws.send(JSON.stringify({type:"position", t}));
+  if (!player.paused && ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({type:"position", t: player.currentTime}));
   }
 }, 250);
 

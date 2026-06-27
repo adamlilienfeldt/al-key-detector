@@ -6,7 +6,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 
 from appconfig import load_merged_config, get_cache_dir
-from audio_fetch import fetch_audio
+from audio_fetch import fetch_audio, media_glob
 from timeline import analyze_timeline, Timeline
 from timeline_driver import TimelineDriver, MidiSink
 import youtube_search
@@ -61,6 +61,19 @@ async def api_load(body: dict):
     STATE["timeline"] = tl
     STATE["video_id"] = vid
     return {"status": "ready", "segments": _segs_json(tl)}
+
+
+def media_path(video_id):
+    hits = media_glob(video_id, get_cache_dir(CFG))
+    return hits[0] if hits else None
+
+
+@app.get("/media/{video_id}")
+def media(video_id: str):
+    p = media_path(video_id)
+    if not p:
+        return JSONResponse({"error": "ikke fundet"}, status_code=404)
+    return FileResponse(p)
 
 
 @app.get("/api/timeline/{video_id}")
