@@ -4,6 +4,8 @@ segment_windows er REN (ingen DSP) og fuldt testbar. analyze_timeline kobler
 detektion (key_detection.detect_key) paa toppen via dependency-injection."""
 from dataclasses import dataclass
 
+from key_detection import detect_key
+
 
 @dataclass
 class WindowKey:
@@ -71,3 +73,34 @@ def segment_windows(windows, hop, min_segment_seconds):
             segs.append(Segment(start=w.t, end=w.t + hop, relative_major_pc=pc,
                                 key=w.key, mode=w.mode, confidence=w.confidence))
     return segs
+
+
+def analyze_timeline(samples, sr, *, window_seconds, hop_seconds,
+                     min_segment_seconds, conf_threshold, detect=detect_key):
+    win = int(window_seconds * sr)
+    hop = int(hop_seconds * sr)
+    windows = []
+    pos = 0
+    while pos + win <= len(samples) or (pos < len(samples) and not windows):
+        seg = samples[pos:pos + win]
+        if len(seg) < win // 2:
+            break
+        res = detect(seg, sr)
+        pc = res.relative_major_pc if res.confidence >= conf_threshold else None
+        windows.append(WindowKey(t=pos / sr, relative_major_pc=pc,
+                                 key=res.key, mode=res.mode, confidence=res.confidence))
+        pos += hop
+    return segment_windows(windows, hop_seconds, min_segment_seconds)
+
+
+class Timeline:
+    def __init__(self, segments):
+        self.segments = segments
+
+    def lookup(self, t):
+        if not self.segments:
+            return None
+        for s in self.segments:
+            if s.start <= t < s.end:
+                return s
+        return self.segments[0] if t < self.segments[0].start else self.segments[-1]
