@@ -73,7 +73,33 @@ def segment_windows(windows, hop, min_segment_seconds):
         else:
             segs.append(Segment(start=w.t, end=w.t + hop, relative_major_pc=pc,
                                 key=w.key, mode=w.mode, confidence=w.confidence))
-    return segs
+    return _merge_short(segs, min_segment_seconds)
+
+
+def _merge_short(segs, min_segment_seconds):
+    """Haard minimums-laengde: absorbér segmenter kortere end min_segment_seconds ind
+    i den laengste nabo, og slå derefter ens-pc naboer sammen. Fjerner korte
+    detektions-artefakter (fx et 9s E-blip midt i en sang)."""
+    while len(segs) > 1:
+        i = min(range(len(segs)), key=lambda j: segs[j].end - segs[j].start)
+        if segs[i].end - segs[i].start >= min_segment_seconds:
+            break
+        left = segs[i - 1] if i > 0 else None
+        right = segs[i + 1] if i < len(segs) - 1 else None
+        # absorbér i den laengste nabo (bevarer dens toneart)
+        if left and (not right or (left.end - left.start) >= (right.end - right.start)):
+            left.end = segs[i].end
+        else:
+            right.start = segs[i].start
+        segs.pop(i)
+    # coalesce ens-pc naboer der nu er blevet tilstødende
+    out = []
+    for s in segs:
+        if out and out[-1].relative_major_pc == s.relative_major_pc:
+            out[-1].end = s.end
+        else:
+            out.append(s)
+    return out
 
 
 def global_pc(windows):
