@@ -73,7 +73,10 @@ def segment_windows(windows, hop, min_segment_seconds):
         else:
             segs.append(Segment(start=w.t, end=w.t + hop, relative_major_pc=pc,
                                 key=w.key, mode=w.mode, confidence=w.confidence))
-    return _merge_short(segs, min_segment_seconds)
+    segs = _merge_short(segs, min_segment_seconds)
+    if segs:
+        segs[0].start = 0.0   # foerste segment daekker fra sang-start (centrum-stempling)
+    return segs
 
 
 def _merge_short(segs, min_segment_seconds):
@@ -153,7 +156,11 @@ def detect_windows(samples, sr, *, window_seconds, hop_seconds, conf_threshold, 
             break
         res = detect(seg, sr)
         pc = res.relative_major_pc if res.confidence >= conf_threshold else None
-        windows.append(WindowKey(t=pos / sr, relative_major_pc=pc,
+        # Tidsstempl ved vinduets CENTRUM: et 20s-vindue der starter ved 34s "ser"
+        # et skifte ved 44s (= centrum). Start-stempling rapporterer grænsen ~halvt
+        # vindue for tidligt; centrum-stempling lander den hvor skiftet faktisk høres.
+        center = min(pos + win // 2, len(samples)) / sr
+        windows.append(WindowKey(t=center, relative_major_pc=pc,
                                  key=res.key, mode=res.mode, confidence=res.confidence))
         pos += hop
     return windows
