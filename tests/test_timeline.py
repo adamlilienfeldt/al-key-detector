@@ -96,6 +96,24 @@ def test_short_blip_absorbed():
     assert len(segs) == 1
     assert segs[0].relative_major_pc == 0
 
+def test_merge_short_absorbs_blip_into_longer_neighbor():
+    from timeline import _merge_short
+    segs = [Segment(0, 40, 9, "A", "major", 0.7),
+            Segment(40, 49, 4, "E", "major", 0.6),    # 9s blip < min 12
+            Segment(49, 90, 2, "D", "major", 0.7)]
+    out = _merge_short(segs, min_segment_seconds=12)
+    assert [s.relative_major_pc for s in out] == [9, 2]   # E absorberet i laengste nabo (D)
+    assert out[1].start == 40 and out[1].end == 90
+
+def test_merge_short_coalesces_same_pc_after_absorb():
+    from timeline import _merge_short
+    segs = [Segment(0, 40, 2, "D", "major", 0.7),
+            Segment(40, 45, 9, "A", "major", 0.6),    # 5s blip
+            Segment(45, 85, 2, "D", "major", 0.7)]
+    out = _merge_short(segs, min_segment_seconds=12)
+    assert [s.relative_major_pc for s in out] == [2]      # D-A-D -> ét D
+    assert out[0].start == 0 and out[0].end == 85
+
 def test_none_windows_ignored_for_boundaries():
     ws = [W(i, 0) for i in range(5)] + [W(5, None, conf=0.1)] + [W(6+i, 0) for i in range(5)]
     segs = segment_windows(ws, hop=1.0, min_segment_seconds=3)
